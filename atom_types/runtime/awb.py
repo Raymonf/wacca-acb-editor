@@ -1,7 +1,9 @@
+from io import BytesIO
+
 from construct import Container, GreedyBytes, Lazy
-from construct.core import evaluate
+from construct.core import evaluate, Bytes
 from atom_types.file.awb_file import Awb_File, Awb_File_Header
-    
+
 class Awb:
     def __init__(self, tree: Container):
         self.tree = tree
@@ -30,14 +32,16 @@ class Awb:
     def getFile(self, index: int) -> bytes:
         return evaluate(self.tree.files[index])
     
-    def overwriteFile(self, index: int, stream) -> None:
-        self.tree.files[index] = Lazy(GreedyBytes).parse_stream(stream)
+    def overwriteFile(self, index: int, file) -> None:
+        buf = file.read()
+        self.tree.files[index] = Bytes(len(buf)).parse(buf)
         # self.headerUpToDate = False
     
-    def appendFile(self, index: int, stream) -> int:
-        self.tree.files.append(Lazy(GreedyBytes).parse_stream(stream))
+    def appendFile(self, file) -> int:
+        buf = file.read()
+        self.tree.files.append(Bytes(len(buf)).parse(buf))
         # self.headerUpToDate = False
-        return len(self.tree.files - 1)
+        return len(self.tree.files) - 1
     
     def popFile(self, index: int) -> None:
         self.tree.files.pop(index)

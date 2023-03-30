@@ -1,43 +1,71 @@
+from collections import OrderedDict
+
+from atom_types.runtime import util
+from atom_types.file.utf_file import ValueTypeNibble
 from atom_types.runtime.table.table_base import TableBase
+from atom_types.runtime.utf import UtfRowCell
+
 
 class CueNameTable(TableBase):
-    def update(self, cueId: int, referenceIndex: int, length: int):
+    def __search_name(self, cue_name: str) -> int:
         try:
-            index = next(filter(lambda x: x[1]["CueId"] == cueId, enumerate(self.utf.rows)))[0]
-            self.utf.rows[index]["ReferenceIndex"] = referenceIndex
-            self.utf.rows[index]["Length"] = length
+            return next(filter(lambda x: x[1]["CueName"].value == cue_name, enumerate(self.utf.rows)))[0]
         except StopIteration:
-            raise KeyError(f"Cue ID '{cueId}' does not exist in Cue Name list.")
-        
-    def upsert(self, cueId: int, referenceIndex: int, length: int):
+            raise KeyError(f"Cue name '{cue_name}' does not exist in Cue Name list.")
+
+    def __search_cue_index(self, cue_index: int) -> int:
         try:
-            index = next(filter(lambda x: x[1]["CueId"] == cueId, enumerate(self.utf.rows)))[0]
-            self.utf.rows[index]["ReferenceIndex"] = referenceIndex
-            self.utf.rows[index]["Length"] = length
+            cue_index_be = util.i16swap(cue_index)
+            return next(filter(lambda x: x[1]["CueIndex"].value == cue_index_be, enumerate(self.utf.rows)))[0]
         except StopIteration:
-            self.add()
-        
-    def add(self, cueName: str, cueIndex: int):
-        if cueName in [row["CueName"] for row in self.utf.rows]:
-            raise KeyError(f"Cue name '{cueName}' already present in Cue Name list.")
-        
-        rowData = {
-            "CueName": cueName,
-            "CueIndex": cueIndex
-        }
-        self.utf.rows.append(rowData)
+            raise KeyError(f"Cue index '{cue_index}' does not exist in Cue Name list.")
+
+    def update(self, search_cue_name: str, new_cue_index: int):
+        """Updates the Cue index based on Cue name.
+
+        :param: search_cue_name: Cue name to search for
+        :param: new_cue_index: New index of the Cue in CueTable (NOT 'CueId')
+        """
+        index = self.__search_name(search_cue_name)
+        # self.utf.rows[index]["CueName"].value = cue_name
+        self.utf.rows[index]["CueIndex"].value = util.i16swap(new_cue_index)
+
+    def update_by_cue_index(self, search_cue_index: int, new_cue_name: str):
+        """Updates the Cue name based on Cue index.
+
+        :param: search_cue_index: Index of the Cue in CueTable (NOT 'CueId') to search for
+        :param: new_cue_name: New Cue name
+        """
+        index = self.__search_cue_index(search_cue_index)
+        self.utf.rows[index]["CueName"].value = new_cue_name
+
+    def add(self, cue_index: int, cue_name: str):
+        """Adds a new row to the Cue Name list.
+
+        :param: cue_index: Index of the Cue in CueTable (NOT 'CueId')
+        :param: cue_name: Unique name to associate with the Cue
+        """
+        if cue_name in [row["CueName"].value for row in self.utf.rows]:
+            raise KeyError(f"Cue name '{cue_name}' already present in Cue Name list.")
+        row = OrderedDict([
+            UtfRowCell.build_tuple("CueName", cue_name, ValueTypeNibble.string),
+            UtfRowCell.build_tuple("CueIndex", util.i16swap(cue_index), ValueTypeNibble.int16),
+        ])
+        self.utf.rows.append(row)
         return len(self.utf.rows) - 1
-        
-    def pop(self, cueName):
-        try:
-            index = next(filter(lambda x: x[1]["CueName"] == cueName, enumerate(self.utf.rows)))[0]
-            self.utf.rows.pop(index)
-        except StopIteration:
-            raise KeyError(f"Cue name '{cueName}' does not exist in Cue Name list.")
-        
-    def get(self, cueIndex):
-        try:
-            index = next(filter(lambda x: x[1]["CueIndex"] == cueIndex, enumerate(self.utf.rows)))[0]
-            return self.utf.rows[index]["CueName"]
-        except StopIteration:
-            raise KeyError(f"Cue index '{cueIndex}' does not exist in Cue Name list.")
+
+    def pop(self, cue_name: str):
+        """Removes a Cue Name from the list.
+
+        :param: cue_name: Cue Name to remove
+        """
+        index = self.__search_name(cue_name)
+        self.utf.rows.pop(index)
+
+    def get_by_name(self, cue_name: str):
+        index = self.__search_name(cue_name)
+        return self.utf.rows[index]
+
+    def get_by_cue_index(self, cue_index: int):
+        index = self.__search_cue_index(cue_index)
+        return self.utf.rows[index]

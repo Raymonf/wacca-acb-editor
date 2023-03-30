@@ -91,10 +91,9 @@ class CueIdsAdapter(Adapter):
         
 Awb_File_Header = Struct(
     "magic" / Const(b"AFS2"),
-    "unk0" / Byte,
+    "version" / Byte, # version = 2
     "pointerSize" / Int8ul,
-    "unk1" / Byte,
-    "unk2" / Byte,
+    "unk1" / Int16ul, # always = 2?
     "count" / Rebuild(Int32ul, len_(this._.files)),
     "alignmentSize" / Int32ul,
     "cueIds" / CueIdsAdapter(Int16ul[this.count]),
