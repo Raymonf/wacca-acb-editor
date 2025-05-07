@@ -101,7 +101,7 @@ class Acb(TableBase):
         self.tables = AwbTables(awbDirectory, utf)
         
     def build_stream(self, stream):
-        # self.sort_cue_name_table() # sort the cue name table now that we're about to build
+        self.sort_cue_name_table() # sort the cue name table now that we're about to build
         self.tables.buildAll(self.utf)
         super().build_stream(stream)
         
